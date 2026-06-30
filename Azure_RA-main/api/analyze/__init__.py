@@ -1,91 +1,183 @@
 import json
 import logging
 import os
-import urllib.error
 import urllib.request
+import urllib.error
+import time
 
 import azure.functions as func
 
-# Read these from Azure environment variables / application settings —
-# never hard-code the key here.
 ENDPOINT = os.environ.get("LANGUAGE_ENDPOINT", "").rstrip("/")
 KEY = os.environ.get("LANGUAGE_KEY", "")
 
 API_VERSION = "2023-04-01"
-TIMEOUT_SECONDS = 20
-MAX_CHARS = 5000
+HEADERS = {
+    "Content-Type": "application/json",
+    "Ocp-Apim-Subscription-Key": KEY,
+}
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    endpoint = os.environ.get("LANGUAGE_ENDPOINT", "").rstrip("/")
-    key = os.environ.get("LANGUAGE_KEY", "")
-    if not endpoint or not key :
-        return _json_response(
-            {"error": "Server is missing LANGUAGE_ENDPOINT / LANGUAGE_KEY environment variables."},
-            500,
+
+    if not ENDPOINT or not KEY:
+        return func.HttpResponse(
+            json.dumps({
+                "error": "Missing LANGUAGE_ENDPOINT or LANGUAGE_KEY"
+            }),
+            status_code=500,
+            mimetype="application/json",
         )
 
     try:
         body = req.get_json()
-    except ValueError:
+    except:
         body = {}
 
-    text = (body.get("text") or "").strip()
-    if not text:
-        return _json_response({"error": 'Request body must include non-empty "text".'}, 400)
-    if len(text) > MAX_CHARS:
-        return _json_response({"error": f"Text must be {MAX_CHARS} characters or fewer."}, 400)
+    text = body.get("text", "").strip()
 
-    try:
-        sentiment_doc = _call_language("SentimentAnalysis", text)["results"]["documents"][0]
-        keyphrase_doc = _call_language("KeyPhraseExtraction", text)["results"]["documents"][0]
-        entity_doc = _call_language("EntityRecognition", text)["results"]["documents"][0]
-    except Exception:
-        logging.exception("Azure AI Language call failed")
-        return _json_response(
-            {"error": "Azure AI Language request failed. Check key/endpoint/quota."}, 502
+    if not text:
+        return func.HttpResponse(
+            json.dumps({"error": "Text is required"}),
+            status_code=400,
+            mimetype="application/json",
         )
 
-    result = {
-        "sentiment": sentiment_doc["sentiment"],  # positive | negative | neutral | mixed
-        "confidenceScores": sentiment_doc["confidenceScores"],
-        "keyPhrases": keyphrase_doc.get("keyPhrases", []),
-        "entities": [
-            {"text": e["text"], "category": e["category"]}
-            for e in entity_doc.get("entities", [])
-        ],
-    }
-    return _json_response(result, 200)
-
-
-def _call_language(kind: str, text: str) -> dict:
-    url = f"{ENDPOINT}/language/:analyze-text?api-version={API_VERSION}"
-    payload = {
-        "kind": kind,
-        "parameters": {"modelVersion": "latest"},
-        "analysisInput": {"documents": [{"id": "1", "language": "en", "text": text}]},
-    }
-    data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Ocp-Apim-Subscription-Key": KEY,
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "ignore")
-        raise RuntimeError(f"{kind} failed: {exc.code} {detail}") from exc
+        language = detect_language(text)
+        pii = pii_redaction(text)
+        summary = abstractive_summary(text)
+
+        result = {
+            "language": language,
+            "piiRedactedText": pii,
+            "summary": summary
+        }
+
+        return func.HttpResponse(
+            json.dumps(result),
+            status_code=200,
+            mimetype="application/json",
+        )
+
+    except Exception as e:
+        logging.exception(e)
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=500,
+            mimetype="application/json",
+        )
 
 
-def _json_response(payload: dict, status: int) -> func.HttpResponse:
-    return func.HttpResponse(
-        json.dumps(payload),
-        status_code=status,
-        mimetype="application/json",
+def detect_language(text):
+
+    url = f"{ENDPOINT}/language/:analyze-text?api-version={API_VERSION}"
+
+    payload = {
+        "kind": "LanguageDetection",
+        "analysisInput": {
+            "documents": [
+                {
+                    "id": "1",
+                    "text": text
+                }
+            ]
+        }
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers=HEADERS,
+        method="POST"
     )
+
+    with urllib.request.urlopen(req) as response:
+        data = json.loads(response.read().decode())
+
+    return data["results"]["documents"][0]["detectedLanguage"]["name"]
+
+
+def pii_redaction(text):
+
+    url = f"{ENDPOINT}/language/:analyze-text?api-version={API_VERSION}"
+
+    payload = {
+        "kind": "PiiEntityRecognition",
+        "analysisInput": {
+            "documents": [
+                {
+                    "id": "1",
+                    "language": "en",
+                    "text": text
+                }
+            ]
+        }
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers=HEADERS,
+        method="POST"
+    )
+
+    with urllib.request.urlopen(req) as response:
+        data = json.loads(response.read().decode())
+
+    return data["results"]["documents"][0]["redactedText"]
+
+
+def abstractive_summary(text):
+
+    url = f"{ENDPOINT}/language/analyze-text/jobs?api-version={API_VERSION}"
+
+    payload = {
+        "displayName": "summary",
+        "analysisInput": {
+            "documents": [
+                {
+                    "id": "1",
+                    "language": "en",
+                    "text": text
+                }
+            ]
+        },
+        "tasks": [
+            {
+                "kind": "AbstractiveSummarization"
+            }
+        ]
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers=HEADERS,
+        method="POST"
+    )
+
+    response = urllib.request.urlopen(req)
+
+    operation_url = response.headers["operation-location"]
+
+    while True:
+
+        req = urllib.request.Request(
+            operation_url,
+            headers={
+                "Ocp-Apim-Subscription-Key": KEY
+            }
+        )
+
+        result = urllib.request.urlopen(req)
+
+        data = json.loads(result.read().decode())
+
+        if data["status"] == "succeeded":
+
+            return data["tasks"]["items"][0]["results"]["documents"][0]["summaries"][0]["text"]
+
+        elif data["status"] == "failed":
+            raise Exception("Summarization failed")
+
+        time.sleep(2)
