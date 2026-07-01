@@ -104,7 +104,7 @@ footer{text-align:center;padding:35px;color:#d8e7ff}
 </div>
 
 <script>
-const API_URL="http://localhost:7071/api/AnalyzeText";
+const API_URL = "/api/analyze";
 text.oninput=()=>{chars.textContent=text.value.length;words.textContent=text.value.trim()?text.value.trim().split(/\s+/).length:0;}
 analyzeBtn.onclick=async()=>{
 const value=text.value.trim();
