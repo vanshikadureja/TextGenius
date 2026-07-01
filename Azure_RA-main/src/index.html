@@ -3,79 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Azure AI Language Analyzer</title>
+<title>Azure AI Premium Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0}
-.container{max-width:900px;margin:40px auto;background:#fff;padding:24px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
-textarea{width:100%;height:180px;padding:10px;font-size:16px}
-button{margin-top:15px;padding:12px 20px;background:#0078D4;color:#fff;border:none;border-radius:6px;cursor:pointer}
-button:hover{background:#005fa3}
-.card{margin-top:20px;padding:15px;background:#f7f7f7;border-left:5px solid #0078D4;border-radius:6px}
-h3{margin-bottom:6px}
-#error{color:red;margin-top:10px}
-#loading{display:none;color:#0078D4;margin-top:10px}
+body{margin:0;font-family:Segoe UI,Arial;background:#0f172a;color:#fff}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:#0b1220;padding:20px}
+.main{margin-left:220px;padding:30px}
+.card{background:#18243d;padding:20px;border-radius:14px;margin:15px 0}
+.drop{border:2px dashed #60a5fa;padding:40px;text-align:center;border-radius:12px}
+button{padding:12px 18px;background:#0078d4;color:#fff;border:none;border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+canvas{background:#fff;border-radius:12px}
 </style>
 </head>
 <body>
-<div class="container">
-<h1>Azure AI Language Analyzer</h1>
-<p>Language Detection • PII Redaction • Abstractive Summarization</p>
-
-<textarea id="text" placeholder="Enter your text here..."></textarea><br>
-<button id="analyzeBtn">Analyze Text</button>
-
-<div id="loading">Analyzing...</div>
-<div id="error"></div>
-
-<div id="result" style="display:none">
-<div class="card">
-<h3>Detected Language</h3>
-<p id="language"></p>
+<div class="sidebar">
+<h2>☁ Azure AI</h2>
+<p>Dashboard</p>
+<hr>
+<p>Language Detection</p>
+<p>PII Redaction</p>
+<p>Summarization</p>
+<button onclick="document.body.classList.toggle('light')">Theme</button>
 </div>
+
+<div class="main">
+<h1>Microsoft AI Bootcamp Dashboard</h1>
 
 <div class="card">
-<h3>PII Redacted Text</h3>
-<p id="pii"></p>
+<div class="drop">
+Drag & Drop TXT / PDF / DOCX Here
+</div>
+</div>
+
+<div class="grid">
+<div class="card"><h3>Language</h3><p id="language">-</p></div>
+<div class="card"><h3>PII</h3><p id="pii">-</p></div>
+<div class="card"><h3>Summary</h3><p id="summary">-</p></div>
 </div>
 
 <div class="card">
-<h3>Abstractive Summary</h3>
-<p id="summary"></p>
-</div>
-</div>
+<canvas id="chart" height="120"></canvas>
 </div>
 
 <script>
-const btn=document.getElementById("analyzeBtn");
-btn.addEventListener("click",async()=>{
- const text=document.getElementById("text").value.trim();
- document.getElementById("error").textContent="";
- if(!text){
-   document.getElementById("error").textContent="Please enter some text.";
-   return;
- }
- document.getElementById("loading").style.display="block";
- document.getElementById("result").style.display="none";
- try{
-   const response=await fetch("/api/analyze",{
-     method:"POST",
-     headers:{"Content-Type":"application/json"},
-     body:JSON.stringify({text:text})
-   });
-   const data=await response.json();
-   if(!response.ok){
-      throw new Error(data.error||"Request failed");
-   }
-   document.getElementById("language").textContent=data.language;
-   document.getElementById("pii").textContent=data.piiRedactedText;
-   document.getElementById("summary").textContent=data.summary;
-   document.getElementById("result").style.display="block";
- }catch(e){
-   document.getElementById("error").textContent=e.message;
- }finally{
-   document.getElementById("loading").style.display="none";
- }
+new Chart(document.getElementById('chart'),{
+type:'bar',
+data:{
+labels:['Language','PII','Summary'],
+datasets:[{label:'Confidence',data:[95,98,93]}]
+}
 });
 </script>
+</div>
 </body>
 </html>
