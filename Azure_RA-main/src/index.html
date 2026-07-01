@@ -2,59 +2,127 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Azure AI Premium Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azure AI Language Analyzer - Elite UI</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 <style>
-body{margin:0;font-family:Segoe UI,Arial;background:#0f172a;color:#fff}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:#0b1220;padding:20px}
-.main{margin-left:220px;padding:30px}
-.card{background:#18243d;padding:20px;border-radius:14px;margin:15px 0}
-.drop{border:2px dashed #60a5fa;padding:40px;text-align:center;border-radius:12px}
-button{padding:12px 18px;background:#0078d4;color:#fff;border:none;border-radius:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
-canvas{background:#fff;border-radius:12px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Inter,sans-serif}
+body{
+background:radial-gradient(circle at top,#1e88e5,#0b1220 70%);
+min-height:100vh;color:#fff;overflow-x:hidden}
+body:before{
+content:"";position:fixed;inset:0;
+background:
+radial-gradient(circle at 20% 20%,rgba(255,255,255,.08),transparent 25%),
+radial-gradient(circle at 80% 40%,rgba(0,255,255,.08),transparent 20%),
+radial-gradient(circle at 50% 90%,rgba(0,140,255,.08),transparent 30%);
+pointer-events:none}
+.wrap{max-width:1200px;margin:auto;padding:40px}
+.hero{text-align:center;padding:30px}
+.hero h1{font-size:54px;font-weight:800}
+.hero p{margin-top:12px;font-size:20px;opacity:.9}
+.ribbon{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:24px 0}
+.ribbon span{padding:10px 18px;border-radius:999px;background:rgba(255,255,255,.12);backdrop-filter:blur(10px)}
+.panel{
+background:rgba(255,255,255,.1);
+backdrop-filter:blur(20px);
+border:1px solid rgba(255,255,255,.15);
+border-radius:24px;
+padding:28px;
+box-shadow:0 20px 50px rgba(0,0,0,.35)}
+textarea{
+width:100%;height:220px;border:none;border-radius:18px;padding:18px;
+font-size:16px;outline:none}
+.controls{display:flex;gap:14px;flex-wrap:wrap;margin-top:18px}
+button{
+padding:14px 22px;border:none;border-radius:14px;
+background:#0078D4;color:#fff;font-weight:700;cursor:pointer;
+transition:.25s}
+button:hover{transform:translateY(-3px) scale(1.02)}
+.stats{display:flex;justify-content:space-between;margin:15px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:26px}
+.card{
+background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.12);
+border-radius:20px;
+padding:20px;
+transition:.3s}
+.card:hover{transform:translateY(-8px)}
+.progress{display:none;margin-top:20px}
+.line{height:8px;background:#ffffff22;border-radius:999px;overflow:hidden}
+.line div{height:100%;width:35%;background:#7fd3ff;animation:slide 1.4s infinite}
+@keyframes slide{0%{transform:translateX(-120%)}100%{transform:translateX(350%)}}
+footer{text-align:center;padding:35px;color:#d8e7ff}
 </style>
 </head>
 <body>
-<div class="sidebar">
-<h2>☁ Azure AI</h2>
-<p>Dashboard</p>
-<hr>
-<p>Language Detection</p>
-<p>PII Redaction</p>
-<p>Summarization</p>
-<button onclick="document.body.classList.toggle('light')">Theme</button>
-</div>
-
-<div class="main">
-<h1>Microsoft AI Bootcamp Dashboard</h1>
-
-<div class="card">
-<div class="drop">
-Drag & Drop TXT / PDF / DOCX Here
+<div class="wrap">
+<div class="hero">
+<h1>☁ Azure AI Language Analyzer</h1>
+<p>Microsoft AI Bootcamp • Premium Showcase Dashboard</p>
+<div class="ribbon">
+<span>🌍 Language Detection</span>
+<span>🔒 PII Redaction</span>
+<span>📝 AI Summarization</span>
+<span>⚡ Azure AI Language</span>
+<span>📊 Analytics Ready</span>
 </div>
 </div>
 
-<div class="grid">
-<div class="card"><h3>Language</h3><p id="language">-</p></div>
-<div class="card"><h3>PII</h3><p id="pii">-</p></div>
-<div class="card"><h3>Summary</h3><p id="summary">-</p></div>
+<div class="panel">
+<h2>Analyze Text</h2>
+<p style="margin:10px 0 18px;color:#d8e7ff">Paste your content below and analyze it with Azure AI.</p>
+
+<textarea id="text" placeholder="Enter text here..."></textarea>
+
+<div class="stats">
+<div><b id="chars">0</b> Characters</div>
+<div><b id="words">0</b> Words</div>
 </div>
 
-<div class="card">
-<canvas id="chart" height="120"></canvas>
+<div class="controls">
+<button id="analyzeBtn">🚀 Analyze</button>
+<button onclick="navigator.clipboard.writeText(summary.innerText)">📋 Copy Summary</button>
+<button onclick="window.print()">📄 Export PDF</button>
+</div>
+
+<div id="loading" class="progress">
+<p>Azure AI is processing...</p>
+<div class="line"><div></div></div>
+</div>
+
+<div id="error" style="margin-top:12px;color:#ffcfcf"></div>
+
+<div class="grid" id="result" style="display:none">
+<div class="card"><h3>🌍 Detected Language</h3><p id="language"></p></div>
+<div class="card"><h3>🔒 PII Redacted</h3><p id="pii"></p></div>
+<div class="card"><h3>📝 Abstractive Summary</h3><p id="summary"></p></div>
+</div>
+</div>
+
+<footer>Powered by Microsoft Azure AI Language Services</footer>
 </div>
 
 <script>
-new Chart(document.getElementById('chart'),{
-type:'bar',
-data:{
-labels:['Language','PII','Summary'],
-datasets:[{label:'Confidence',data:[95,98,93]}]
+const API_URL="http://localhost:7071/api/AnalyzeText";
+text.oninput=()=>{chars.textContent=text.value.length;words.textContent=text.value.trim()?text.value.trim().split(/\s+/).length:0;}
+analyzeBtn.onclick=async()=>{
+const value=text.value.trim();
+error.textContent="";
+if(!value){error.textContent="Please enter text.";return;}
+loading.style.display="block";
+result.style.display="none";
+try{
+const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:value})});
+const d=await r.json();
+if(!r.ok) throw new Error(d.error||"Request failed");
+language.textContent=d.language;
+pii.textContent=d.piiRedactedText;
+summary.textContent=d.summary;
+result.style.display="grid";
+}catch(e){error.textContent=e.message;}
+finally{loading.style.display="none";}
 }
-});
 </script>
-</div>
 </body>
 </html>
